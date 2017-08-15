@@ -1,4 +1,9 @@
-import { WebSocketGateway, WebSocketServer, SubscribeMessage, OnGatewayInit, OnGatewayConnection } from '@nestjs/websockets';
+import { WebSocketGateway, 
+         WebSocketServer, 
+         SubscribeMessage, 
+         OnGatewayInit, 
+         OnGatewayConnection } from '@nestjs/websockets';
+import { PointerService } from '../pointer/pointer.service';
 
 @WebSocketGateway({
     port: 4000, namespace: 'tunnel'
@@ -6,33 +11,31 @@ import { WebSocketGateway, WebSocketServer, SubscribeMessage, OnGatewayInit, OnG
 export class TunnelGateway {
     @WebSocketServer()
     private Server: any
+    private pointerService: PointerService
 
-    private locations: any[] = [];
-
-    private updateLocation(data: any){
-        var location: object = data.location
-        if('latitude' in location){
-            const i = this.locations.findIndex(x => x.title === data.location.title)
-            if (i >= 0) this.locations.splice(i, 1);
-            this.locations.push(data.location)
-        }
-    }
-
-    public afterInit(server) {
+    afterInit(server) {
         //console.log("gateway init ==== \n", server)
     }
 
-    public handleConnection(client) {   
+    handleConnection(client) {   
         //console.log("gateway connection ==== \n", client)
     }
 
     @SubscribeMessage('newLocation')
-    public onNewLocation(sender, data) {
-        this.updateLocation(data)
+    async onNewLocation(sender, data) {
+        console.log('data recive', data)
+        let pointer = await this.pointerService.findPointerByTitle(data.location.title)
+        if(pointer){
+            await this.pointerService.updatePointer(data.location)
+        }else{
+            await this.pointerService.createPointer(data.location)
+        }
         console.log('data')
         console.log('============================')
-        console.log(this.locations)
-        this.Server.emit('newLocation', this.locations)
+        const pointers = await this.pointerService.getAll()
+        console.log(pointers)
+        console.log('==================================')
+        this.Server.emit(pointers)
         // sender.emit('newLocation', this.locations)
         // console.log("============================================== \n",
         //     sender)
